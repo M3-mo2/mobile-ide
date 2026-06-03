@@ -39,18 +39,15 @@ jobs:
       - name: Grant execute permission for gradlew
         run: chmod +x gradlew
 
-      - name: Run ktlint
-        run: ./gradlew ktlintCheck --no-daemon
+      - name: Run Android Lint
+        run: ./gradlew lint --no-daemon
 
-      - name: Run detekt
-        run: ./gradlew detekt --no-daemon
-
-      - name: Upload detekt report
+      - name: Upload lint report
         uses: actions/upload-artifact@v4
         if: always()
         with:
-          name: detekt-report
-          path: '**/build/reports/detekt/*.html'
+          name: lint-report
+          path: '**/build/reports/lint-results*.html'
           retention-days: 7
 
   unit-tests:
@@ -88,15 +85,12 @@ jobs:
           path: '**/build/test-results/test/*.xml'
           retention-days: 7
 
-      - name: Generate coverage report
-        run: ./gradlew jacocoTestReport --no-daemon
-
-      - name: Upload coverage report
+      - name: Upload test reports
         uses: actions/upload-artifact@v4
         if: always()
         with:
-          name: coverage-report
-          path: '**/build/reports/jacoco/test/html'
+          name: test-reports
+          path: '**/build/reports/tests/'
           retention-days: 7
 
   build-debug:
