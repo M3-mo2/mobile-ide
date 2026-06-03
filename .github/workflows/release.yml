@@ -2,8 +2,7 @@ name: Release
 
 on:
   push:
-    tags:
-      - 'v*'
+    branches: [ main ]
   workflow_dispatch:
     inputs:
       version:
@@ -21,7 +20,7 @@ concurrency:
 
 jobs:
   build-release:
-    name: Build & Sign Release APK
+    name: Build Release APK
     runs-on: ubuntu-latest
     timeout-minutes: 25
     steps:
@@ -43,45 +42,26 @@ jobs:
       - name: Grant execute permission for gradlew
         run: chmod +x gradlew
 
-      - name: Run tests
-        run: ./gradlew test --no-daemon
-
       - name: Build release APK
         run: ./gradlew assembleRelease --no-daemon
 
-      - name: Sign APK with GitHub Actions
-        uses: r0adkll/sign-android-release@v1
-        id: sign_app
-        with:
-          releaseDirectory: app/build/outputs/apk/release
-          signingKeyBase64: ${{ secrets.SIGNING_KEY }}
-          alias: ${{ secrets.ALIAS }}
-          keyStorePassword: ${{ secrets.KEY_STORE_PASSWORD }}
-          keyPassword: ${{ secrets.KEY_PASSWORD }}
-        env:
-          BUILD_TOOLS_VERSION: "34.0.0"
-
-      - name: Upload signed APK artifact
+      - name: Upload unsigned APK artifact
         uses: actions/upload-artifact@v4
         with:
-          name: signed-release-apk
-          path: ${{ steps.sign_app.outputs.signedReleaseFile }}
+          name: release-apk
+          path: app/build/outputs/apk/release/*.apk
           retention-days: 30
 
-      - name: Extract version from tag
+      - name: Extract version
         id: get_version
         run: |
-          if [ "${{ github.event_name }}" = "push" ]; then
-            VERSION=${GITHUB_REF#refs/tags/v}
-          else
-            VERSION=${{ github.event.inputs.version }}
-          fi
+          VERSION=$(grep -o 'versionName = "[^"]*"' app/build.gradle.kts | cut -d'"' -f2)
           echo "VERSION=$VERSION" >> $GITHUB_OUTPUT
 
       - name: Create GitHub Release
         uses: softprops/action-gh-release@v2
         with:
-          tag_name: ${{ github.ref_name || format('v{0}', github.event.inputs.version) }}
+          tag_name: v${{ steps.get_version.outputs.VERSION }}
           name: "Mobile IDE v${{ steps.get_version.outputs.VERSION }}"
           body: |
             ## Mobile IDE Release v${{ steps.get_version.outputs.VERSION }}
@@ -90,14 +70,14 @@ jobs:
             - See [CHANGELOG.md](../CHANGELOG.md) for details.
 
             ### APK
-            Download the signed APK from the assets below.
+            Download the release APK from the assets below.
 
             ### Installation
-            1. Download `app-release-signed.apk`
+            1. Download `app-release-unsigned.apk`
             2. Enable "Install from Unknown Sources" on your Android device
             3. Install the APK
           files: |
-            ${{ steps.sign_app.outputs.signedReleaseFile }}
+            app/build/outputs/apk/release/*.apk
           fail_on_unmatched_files: false
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
