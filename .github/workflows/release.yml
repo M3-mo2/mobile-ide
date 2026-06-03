@@ -20,7 +20,7 @@ concurrency:
 
 jobs:
   build-release:
-    name: Build Release APK
+    name: Build Signed Release APK
     runs-on: ubuntu-latest
     timeout-minutes: 25
     steps:
@@ -42,13 +42,13 @@ jobs:
       - name: Grant execute permission for gradlew
         run: chmod +x gradlew
 
-      - name: Build release APK
+      - name: Build signed release APK
         run: ./gradlew assembleRelease --no-daemon
 
-      - name: Upload unsigned APK artifact
+      - name: Upload APK artifact
         uses: actions/upload-artifact@v4
         with:
-          name: release-apk
+          name: signed-release-apk
           path: app/build/outputs/apk/release/*.apk
           retention-days: 30
 
@@ -61,19 +61,16 @@ jobs:
       - name: Create GitHub Release
         uses: softprops/action-gh-release@v2
         with:
-          tag_name: v${{ steps.get_version.outputs.VERSION }}
+          tag_name: v${{ steps.get_version.outputs.VERSION }}-${{ github.run_number }}
           name: "Mobile IDE v${{ steps.get_version.outputs.VERSION }}"
           body: |
             ## Mobile IDE Release v${{ steps.get_version.outputs.VERSION }}
 
-            ### Changes
-            - See [CHANGELOG.md](../CHANGELOG.md) for details.
-
             ### APK
-            Download the release APK from the assets below.
+            Download the signed APK from the assets below.
 
             ### Installation
-            1. Download `app-release-unsigned.apk`
+            1. Download `app-release.apk`
             2. Enable "Install from Unknown Sources" on your Android device
             3. Install the APK
           files: |
