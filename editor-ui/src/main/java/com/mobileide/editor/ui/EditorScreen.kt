@@ -1,5 +1,6 @@
 package com.mobileide.editor.ui
 
+import androidx.compose.foundation.background
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
@@ -8,6 +9,9 @@ import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.width
+import androidx.compose.foundation.lazy.LazyColumn
+import androidx.compose.foundation.lazy.itemsIndexed
+import androidx.compose.foundation.text.BasicTextField
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Surface
 import androidx.compose.material3.Text
@@ -16,8 +20,10 @@ import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.setValue
+import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.graphics.SolidColor
 import androidx.compose.ui.platform.LocalDensity
 import androidx.compose.ui.text.TextStyle
 import androidx.compose.ui.text.font.FontFamily
@@ -25,11 +31,9 @@ import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import com.mobileide.editor.core.EditorState
 import com.mobileide.editor.core.Position
-import com.mobileide.editor.core.TextBufferFactory
 
 /**
- * Main editor screen composable.
- * This is the root composable for the editor UI.
+ * Main editor screen composable with real text editing.
  */
 @Composable
 fun EditorScreen(
@@ -38,9 +42,12 @@ fun EditorScreen(
     onCursorMove: (Position) -> Unit,
     modifier: Modifier = Modifier
 ) {
+    val textColor = Color(0xFFBBBBBB)
+    val backgroundColor = Color(0xFF1E1E1E)
+
     Surface(
         modifier = modifier.fillMaxSize(),
-        color = MaterialTheme.colorScheme.background
+        color = backgroundColor
     ) {
         Column(modifier = Modifier.fillMaxSize()) {
             // Toolbar
@@ -63,24 +70,79 @@ fun EditorScreen(
                     )
                 }
 
-                // Text editor canvas
-                EditorCanvas(
+                // Text editor
+                EditorTextArea(
                     state = state,
                     onEdit = onEdit,
                     onCursorMove = onCursorMove,
                     modifier = Modifier.weight(1f)
                 )
             }
-
-            // Status bar
-            StatusBar(
-                line = state.cursor.primary.position.line + 1,
-                column = state.cursor.primary.position.column + 1,
-                lineCount = state.document.content.getLineCount(),
-                encoding = state.document.encoding,
-                modifier = Modifier.fillMaxWidth()
-            )
         }
+    }
+}
+
+/**
+ * Real text editor area using BasicTextField for actual editing.
+ */
+@Composable
+private fun EditorTextArea(
+    state: EditorState,
+    onEdit: (String, Position, Position) -> Unit,
+    onCursorMove: (Position) -> Unit,
+    modifier: Modifier = Modifier
+) {
+    val textColor = Color(0xFFBBBBBB)
+    val backgroundColor = Color(0xFF1E1E1E)
+    val cursorColor = Color(0xFFAEAFAD)
+
+    // Convert TextBuffer to string for display
+    val fullText = remember(state.document.content) {
+        state.document.content.getText()
+    }
+
+    var textValue by remember(fullText) { mutableStateOf(fullText) }
+
+    // Update text when document changes externally
+    androidx.compose.runtime.LaunchedEffect(fullText) {
+        if (textValue != fullText) {
+            textValue = fullText
+        }
+    }
+
+    Box(
+        modifier = modifier
+            .fillMaxSize()
+            .background(backgroundColor)
+    ) {
+        BasicTextField(
+            value = textValue,
+            onValueChange = { newText ->
+                textValue = newText
+                // Calculate what changed and send edit event
+                val oldText = fullText
+                if (newText != oldText) {
+                    // Simple approach: replace entire content
+                    val startPos = Position(0, 0)
+                    val endPos = Position(
+                        line = oldText.lines().size - 1,
+                        column = oldText.lines().lastOrNull()?.length ?: 0
+                    )
+                    onEdit(newText, startPos, endPos)
+                }
+            },
+            modifier = Modifier.fillMaxSize(),
+            textStyle = TextStyle(
+                fontSize = state.settings.fontSize.sp,
+                fontFamily = FontFamily.Monospace,
+                color = textColor,
+                lineHeight = 20.sp
+            ),
+            cursorBrush = SolidColor(cursorColor),
+            decorationBox = { innerTextField ->
+                innerTextField()
+            }
+        )
     }
 }
 
@@ -106,7 +168,7 @@ private fun EditorToolbar(
             Text(
                 text = if (isDirty) "$fileName *" else fileName,
                 style = MaterialTheme.typography.titleMedium,
-                modifier = Modifier.align(androidx.compose.ui.Alignment.CenterStart)
+                modifier = Modifier.align(Alignment.CenterStart)
             )
         }
     }
@@ -132,9 +194,11 @@ private fun Gutter(
         modifier = modifier.fillMaxSize(),
         color = gutterBackground
     ) {
-        Column {
+        LazyColumn {
             val endLine = (topLine + visibleLines).coerceAtMost(lineCount)
-            for (line in topLine until endLine) {
+            val items = (topLine until endLine).toList()
+
+            itemsIndexed(items) { _, line ->
                 val isActiveLine = line == cursorLine
                 Text(
                     text = "${line + 1}",
@@ -145,77 +209,10 @@ private fun Gutter(
                     ),
                     modifier = Modifier
                         .height(lineHeight)
-                        .padding(horizontal = 8.dp)
+                        .padding(horizontal = 8.dp),
+                    maxLines = 1
                 )
             }
-        }
-    }
-}
-
-/**
- * Editor canvas composable.
- * This is where the text is rendered.
- */
-@Composable
-private fun EditorCanvas(
-    state: EditorState,
-    onEdit: (String, Position, Position) -> Unit,
-    onCursorMove: (Position) -> Unit,
-    modifier: Modifier = Modifier
-) {
-    val textColor = Color(0xFFBBBBBB)
-    val backgroundColor = Color(0xFF1E1E1E)
-    val lineHeight = with(LocalDensity.current) { 20.sp.toDp() }
-
-    Surface(
-        modifier = modifier.fillMaxSize(),
-        color = backgroundColor
-    ) {
-        Column {
-            val endLine = (state.viewport.topLine + state.viewport.visibleLines())
-                .coerceAtMost(state.document.content.getLineCount())
-
-            for (line in state.viewport.topLine until endLine) {
-                val lineText = state.document.content.getLine(line)
-                Text(
-                    text = lineText,
-                    style = TextStyle(
-                        fontSize = 14.sp,
-                        fontFamily = FontFamily.Monospace,
-                        color = textColor
-                    ),
-                    modifier = Modifier.height(lineHeight)
-                )
-            }
-        }
-    }
-}
-
-/**
- * Status bar composable.
- */
-@Composable
-internal fun StatusBar(
-    line: Int,
-    column: Int,
-    lineCount: Int,
-    encoding: String,
-    modifier: Modifier = Modifier
-) {
-    Surface(
-        modifier = modifier.height(24.dp),
-        color = MaterialTheme.colorScheme.surfaceVariant
-    ) {
-        Box(
-            modifier = Modifier
-                .fillMaxSize()
-                .padding(horizontal = 16.dp)
-        ) {
-            Text(
-                text = "Ln $line, Col $column | $encoding | Lines: $lineCount",
-                style = MaterialTheme.typography.labelSmall,
-                modifier = Modifier.align(androidx.compose.ui.Alignment.CenterEnd)
-            )
         }
     }
 }

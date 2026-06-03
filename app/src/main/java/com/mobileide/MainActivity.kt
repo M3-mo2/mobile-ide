@@ -5,6 +5,7 @@ import androidx.activity.ComponentActivity
 import androidx.activity.compose.setContent
 import androidx.activity.enableEdgeToEdge
 import androidx.compose.foundation.layout.fillMaxSize
+import androidx.compose.foundation.layout.safeDrawingPadding
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Surface
 import androidx.compose.ui.Modifier
@@ -15,7 +16,7 @@ import dagger.hilt.android.AndroidEntryPoint
 
 /**
  * Main activity for Mobile IDE.
- * Sets up the Compose UI and Hilt.
+ * Sets up the Compose UI with proper edge-to-edge handling.
  */
 @AndroidEntryPoint
 class MainActivity : ComponentActivity() {
@@ -25,17 +26,14 @@ class MainActivity : ComponentActivity() {
         setContent {
             MobileIDETheme {
                 Surface(
-                    modifier = Modifier.fillMaxSize(),
+                    modifier = Modifier
+                        .fillMaxSize()
+                        .safeDrawingPadding(),
                     color = MaterialTheme.colorScheme.background
                 ) {
                     val viewModel: MainViewModel = hiltViewModel()
                     IdeLayout(
-                        state = viewModel.editorState,
-                        onFileSelect = { viewModel.openFile(it) },
-                        onNewFile = { viewModel.createNewFile() },
-                        onCloseFile = { viewModel.closeFile(it) },
-                        onSearch = { viewModel.openSearch() },
-                        onSettings = { viewModel.openSettings() }
+                        viewModel = viewModel
                     )
                 }
             }

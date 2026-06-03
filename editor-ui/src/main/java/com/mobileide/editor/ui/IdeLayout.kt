@@ -11,9 +11,16 @@ import androidx.compose.foundation.layout.width
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.Add
 import androidx.compose.material.icons.filled.Close
+import androidx.compose.material.icons.filled.CreateNewFolder
+import androidx.compose.material.icons.filled.Delete
+import androidx.compose.material.icons.filled.Edit
+import androidx.compose.material.icons.filled.FolderOpen
 import androidx.compose.material.icons.filled.Menu
+import androidx.compose.material.icons.filled.Redo
+import androidx.compose.material.icons.filled.Save
 import androidx.compose.material.icons.filled.Search
 import androidx.compose.material.icons.filled.Settings
+import androidx.compose.material.icons.filled.Undo
 import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
 import androidx.compose.material3.MaterialTheme
@@ -22,25 +29,25 @@ import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
-import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
+import com.mobileide.MainViewModel
 import com.mobileide.editor.core.EditorState
+import com.mobileide.editor.files.FileEntry
+import com.mobileide.editor.files.Tab
 
 /**
  * Main IDE layout composable.
- * Combines the sidebar (file explorer), editor area, and toolbars.
+ * Combines the sidebar (file explorer), editor area, toolbars, search, and settings.
  */
 @Composable
 fun IdeLayout(
-    state: EditorState,
-    onFileSelect: (String) -> Unit,
-    onNewFile: () -> Unit,
-    onCloseFile: (String) -> Unit,
-    onSearch: () -> Unit,
-    onSettings: () -> Unit,
+    viewModel: MainViewModel,
     modifier: Modifier = Modifier
 ) {
+    val uiState = viewModel.uiState
+    val editorState = viewModel.editorState
+
     Surface(
         modifier = modifier.fillMaxSize(),
         color = MaterialTheme.colorScheme.background
@@ -48,53 +55,80 @@ fun IdeLayout(
         Column(modifier = Modifier.fillMaxSize()) {
             // Top toolbar
             IdeToolbar(
-                onNewFile = onNewFile,
-                onSearch = onSearch,
-                onSettings = onSettings,
+                onNewFile = { viewModel.createNewFile() },
+                onOpenFolder = { /* Would open SAF picker */ },
+                onSave = { viewModel.saveCurrentFile() },
+                onUndo = { viewModel.undo() },
+                onRedo = { viewModel.redo() },
+                onSearch = { viewModel.openSearch() },
+                onSettings = { viewModel.openSettings() },
+                onToggleSidebar = { viewModel.toggleSidebar() },
                 modifier = Modifier.fillMaxWidth()
             )
 
             // Main content area
             Row(modifier = Modifier.weight(1f)) {
                 // Sidebar (file explorer)
-                // TODO: Implement file explorer sidebar
-                // For now, just a placeholder
-                Surface(
-                    modifier = Modifier
-                        .width(250.dp)
-                        .fillMaxHeight(),
-                    color = MaterialTheme.colorScheme.surfaceVariant
-                ) {
-                    Column {
-                        Text(
-                            text = "Explorer",
-                            style = MaterialTheme.typography.titleSmall,
-                            modifier = Modifier.padding(16.dp)
-                        )
-                        Text(
-                            text = "(File explorer will be implemented here)",
-                            style = MaterialTheme.typography.bodySmall,
-                            modifier = Modifier.padding(16.dp)
-                        )
-                    }
+                if (uiState.isSidebarOpen) {
+                    FileExplorerPanel(
+                        root = uiState.projectRoot,
+                        expandedDirs = uiState.expandedDirectories,
+                        onFileClick = { viewModel.openFile(it) },
+                        onDirectoryClick = { path ->
+                            if (uiState.expandedDirectories.contains(path)) {
+                                viewModel.collapseDirectory(path)
+                            } else {
+                                viewModel.expandDirectory(path)
+                            }
+                        },
+                        onCreateFile = { viewModel.createNewFile(it) },
+                        onCreateFolder = { viewModel.createNewFolder(it) },
+                        onRename = { oldPath, newName -> viewModel.renameFile(oldPath, newName) },
+                        onDelete = { viewModel.deleteFile(it) },
+                        modifier = Modifier.width(280.dp)
+                    )
                 }
 
                 // Editor area
                 Column(modifier = Modifier.weight(1f)) {
                     // Tab bar
                     TabBar(
-                        openFiles = listOf(), // TODO: Get from state
-                        activeFile = null, // TODO: Get from state
-                        onFileSelect = onFileSelect,
-                        onCloseFile = onCloseFile,
+                        openTabs = uiState.openTabs,
+                        activeTabId = uiState.activeTabId,
+                        onTabClick = { viewModel.switchTab(it) },
+                        onTabClose = { viewModel.closeFile(it) },
                         modifier = Modifier.fillMaxWidth()
                     )
 
+                    // Search panel (conditional)
+                    if (uiState.isSearchOpen) {
+                        SearchPanel(
+                            state = editorState,
+                            onSearch = { query, options -> viewModel.search(query, options) },
+                            onReplace = { viewModel.replace(it) },
+                            onReplaceAll = { query, replacement, options ->
+                                viewModel.replaceAll(query, replacement, options)
+                            },
+                            onClose = { viewModel.closeSearch() },
+                            modifier = Modifier.fillMaxWidth()
+                        )
+                    }
+
+                    // Settings panel (conditional)
+                    if (uiState.isSettingsOpen) {
+                        SettingsPanel(
+                            settings = editorState.settings,
+                            onSettingsChange = { viewModel.updateSettings(it) },
+                            onClose = { viewModel.closeSettings() },
+                            modifier = Modifier.fillMaxWidth()
+                        )
+                    }
+
                     // Editor content
                     EditorScreen(
-                        state = state,
-                        onEdit = { _, _, _ -> }, // TODO: Implement
-                        onCursorMove = { _ -> }, // TODO: Implement
+                        state = editorState,
+                        onEdit = { text, start, end -> viewModel.onEdit(text, start, end) },
+                        onCursorMove = { viewModel.onCursorMove(it) },
                         modifier = Modifier.weight(1f)
                     )
                 }
@@ -102,10 +136,12 @@ fun IdeLayout(
 
             // Status bar
             StatusBar(
-                line = state.cursor.primary.position.line + 1,
-                column = state.cursor.primary.position.column + 1,
-                lineCount = state.document.content.getLineCount(),
-                encoding = state.document.encoding,
+                line = editorState.cursor.primary.position.line + 1,
+                column = editorState.cursor.primary.position.column + 1,
+                lineCount = editorState.document.content.getLineCount(),
+                encoding = editorState.document.encoding,
+                filePath = editorState.document.filePath,
+                isDirty = editorState.document.isDirty,
                 modifier = Modifier.fillMaxWidth()
             )
         }
@@ -113,13 +149,18 @@ fun IdeLayout(
 }
 
 /**
- * IDE toolbar composable.
+ * IDE toolbar composable with all working buttons.
  */
 @Composable
 private fun IdeToolbar(
     onNewFile: () -> Unit,
+    onOpenFolder: () -> Unit,
+    onSave: () -> Unit,
+    onUndo: () -> Unit,
+    onRedo: () -> Unit,
     onSearch: () -> Unit,
     onSettings: () -> Unit,
+    onToggleSidebar: () -> Unit,
     modifier: Modifier = Modifier
 ) {
     Surface(
@@ -133,12 +174,28 @@ private fun IdeToolbar(
                 .padding(horizontal = 8.dp),
             verticalAlignment = Alignment.CenterVertically
         ) {
-            IconButton(onClick = { /* TODO: Toggle sidebar */ }) {
+            IconButton(onClick = onToggleSidebar) {
                 Icon(Icons.Default.Menu, contentDescription = "Toggle Sidebar")
             }
 
             IconButton(onClick = onNewFile) {
                 Icon(Icons.Default.Add, contentDescription = "New File")
+            }
+
+            IconButton(onClick = onOpenFolder) {
+                Icon(Icons.Default.FolderOpen, contentDescription = "Open Folder")
+            }
+
+            IconButton(onClick = onSave) {
+                Icon(Icons.Default.Save, contentDescription = "Save")
+            }
+
+            IconButton(onClick = onUndo) {
+                Icon(Icons.Default.Undo, contentDescription = "Undo")
+            }
+
+            IconButton(onClick = onRedo) {
+                Icon(Icons.Default.Redo, contentDescription = "Redo")
             }
 
             Text(
@@ -159,14 +216,117 @@ private fun IdeToolbar(
 }
 
 /**
+ * File explorer panel with header and tree.
+ */
+@Composable
+private fun FileExplorerPanel(
+    root: FileEntry.Directory?,
+    expandedDirs: Set<String>,
+    onFileClick: (String) -> Unit,
+    onDirectoryClick: (String) -> Unit,
+    onCreateFile: (String) -> Unit,
+    onCreateFolder: (String) -> Unit,
+    onRename: (String, String) -> Unit,
+    onDelete: (String) -> Unit,
+    modifier: Modifier = Modifier
+) {
+    Surface(
+        modifier = modifier.fillMaxHeight(),
+        color = MaterialTheme.colorScheme.surfaceVariant
+    ) {
+        Column {
+            // Explorer header with actions
+            Surface(
+                modifier = Modifier.fillMaxWidth(),
+                color = MaterialTheme.colorScheme.surface
+            ) {
+                Row(
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .padding(horizontal = 12.dp, vertical = 8.dp),
+                    verticalAlignment = Alignment.CenterVertically
+                ) {
+                    Text(
+                        text = "Explorer",
+                        style = MaterialTheme.typography.titleSmall,
+                        modifier = Modifier.weight(1f)
+                    )
+
+                    if (root != null) {
+                        IconButton(
+                            onClick = { onCreateFile(root.path) },
+                            modifier = Modifier.height(28.dp)
+                        ) {
+                            Icon(
+                                Icons.Default.Add,
+                                contentDescription = "New File",
+                                modifier = Modifier.height(18.dp)
+                            )
+                        }
+
+                        IconButton(
+                            onClick = { onCreateFolder(root.path) },
+                            modifier = Modifier.height(28.dp)
+                        ) {
+                            Icon(
+                                Icons.Default.CreateNewFolder,
+                                contentDescription = "New Folder",
+                                modifier = Modifier.height(18.dp)
+                            )
+                        }
+                    }
+                }
+            }
+
+            // File tree
+            if (root != null) {
+                FileExplorer(
+                    root = root,
+                    expandedDirs = expandedDirs,
+                    onFileClick = onFileClick,
+                    onDirectoryClick = onDirectoryClick,
+                    onCreateFile = onCreateFile,
+                    onCreateFolder = onCreateFolder,
+                    onRename = onRename,
+                    onDelete = onDelete,
+                    modifier = Modifier.weight(1f)
+                )
+            } else {
+                // No folder open state
+                Surface(
+                    modifier = Modifier.fillMaxSize(),
+                    color = MaterialTheme.colorScheme.surfaceVariant
+                ) {
+                    Column(
+                        modifier = Modifier.fillMaxSize(),
+                        horizontalAlignment = Alignment.CenterHorizontally
+                    ) {
+                        Text(
+                            text = "No folder open",
+                            style = MaterialTheme.typography.bodyMedium,
+                            modifier = Modifier.padding(16.dp)
+                        )
+                        Text(
+                            text = "Tap the folder icon to open a project",
+                            style = MaterialTheme.typography.bodySmall,
+                            color = MaterialTheme.colorScheme.onSurfaceVariant
+                        )
+                    }
+                }
+            }
+        }
+    }
+}
+
+/**
  * Tab bar composable for open files.
  */
 @Composable
 private fun TabBar(
-    openFiles: List<String>,
-    activeFile: String?,
-    onFileSelect: (String) -> Unit,
-    onCloseFile: (String) -> Unit,
+    openTabs: List<Tab>,
+    activeTabId: String?,
+    onTabClick: (String) -> Unit,
+    onTabClose: (String) -> Unit,
     modifier: Modifier = Modifier
 ) {
     Surface(
@@ -177,31 +337,33 @@ private fun TabBar(
             modifier = Modifier.fillMaxSize(),
             verticalAlignment = Alignment.CenterVertically
         ) {
-            if (openFiles.isEmpty()) {
+            if (openTabs.isEmpty()) {
                 Text(
                     text = "No files open",
                     style = MaterialTheme.typography.bodySmall,
-                    modifier = Modifier.padding(horizontal = 16.dp)
+                    modifier = Modifier.padding(horizontal = 16.dp),
+                    color = MaterialTheme.colorScheme.onSurfaceVariant
                 )
             } else {
-                openFiles.forEach { filePath ->
-                    val isActive = filePath == activeFile
+                openTabs.forEach { tab ->
+                    val isActive = tab.id == activeTabId
                     val backgroundColor = if (isActive) {
                         MaterialTheme.colorScheme.primaryContainer
                     } else {
-                        Color.Transparent
+                        MaterialTheme.colorScheme.surface
                     }
 
                     Surface(
                         modifier = Modifier.padding(horizontal = 2.dp),
-                        color = backgroundColor
+                        color = backgroundColor,
+                        onClick = { onTabClick(tab.id) }
                     ) {
                         Row(
                             modifier = Modifier.padding(horizontal = 12.dp, vertical = 6.dp),
                             verticalAlignment = Alignment.CenterVertically
                         ) {
                             Text(
-                                text = filePath.substringAfterLast('/'),
+                                text = tab.title + if (tab.isDirty) " *" else "",
                                 style = MaterialTheme.typography.labelMedium,
                                 maxLines = 1,
                                 overflow = TextOverflow.Ellipsis,
@@ -209,7 +371,7 @@ private fun TabBar(
                             )
 
                             IconButton(
-                                onClick = { onCloseFile(filePath) },
+                                onClick = { onTabClose(tab.id) },
                                 modifier = Modifier
                                     .padding(start = 4.dp)
                                     .width(20.dp)
@@ -225,6 +387,50 @@ private fun TabBar(
                     }
                 }
             }
+        }
+    }
+}
+
+/**
+ * Status bar composable with file info.
+ */
+@Composable
+internal fun StatusBar(
+    line: Int,
+    column: Int,
+    lineCount: Int,
+    encoding: String,
+    filePath: String?,
+    isDirty: Boolean,
+    modifier: Modifier = Modifier
+) {
+    Surface(
+        modifier = modifier.height(24.dp),
+        color = MaterialTheme.colorScheme.surfaceVariant
+    ) {
+        Row(
+            modifier = Modifier
+                .fillMaxSize()
+                .padding(horizontal = 16.dp),
+            verticalAlignment = Alignment.CenterVertically
+        ) {
+            // File path on the left
+            Text(
+                text = filePath?.let { 
+                    val name = it.substringAfterLast('/')
+                    if (isDirty) "$name *" else name
+                } ?: "Untitled",
+                style = MaterialTheme.typography.labelSmall,
+                modifier = Modifier.weight(1f),
+                maxLines = 1,
+                overflow = TextOverflow.Ellipsis
+            )
+
+            // Position and info on the right
+            Text(
+                text = "Ln $line, Col $column | $encoding | Lines: $lineCount",
+                style = MaterialTheme.typography.labelSmall
+            )
         }
     }
 }

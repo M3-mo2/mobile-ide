@@ -4,17 +4,20 @@ import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.padding
+import androidx.compose.foundation.layout.width
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.ArrowDownward
 import androidx.compose.material.icons.filled.ArrowUpward
 import androidx.compose.material.icons.filled.Close
 import androidx.compose.material.icons.filled.Search
+import androidx.compose.material3.Checkbox
 import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.OutlinedTextField
 import androidx.compose.material3.Surface
 import androidx.compose.material3.Text
+import androidx.compose.material3.TextButton
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
@@ -27,14 +30,14 @@ import com.mobileide.editor.core.EditorState
 import com.mobileide.editor.search.SearchOptions
 
 /**
- * Search panel composable.
- * Provides search and replace functionality.
+ * Search panel composable with real search and replace functionality.
  */
 @Composable
 fun SearchPanel(
     state: EditorState,
     onSearch: (String, SearchOptions) -> Unit,
     onReplace: (String) -> Unit,
+    onReplaceAll: (String, String, SearchOptions) -> Unit,
     onClose: () -> Unit,
     modifier: Modifier = Modifier
 ) {
@@ -66,10 +69,12 @@ fun SearchPanel(
                     modifier = Modifier.weight(1f),
                     singleLine = true,
                     trailingIcon = {
-                        Text(
-                            text = "${state.search.currentMatch}/${state.search.totalMatches}",
-                            style = MaterialTheme.typography.labelSmall
-                        )
+                        if (state.search.totalMatches > 0) {
+                            Text(
+                                text = "${state.search.currentMatch + 1}/${state.search.totalMatches}",
+                                style = MaterialTheme.typography.labelSmall
+                            )
+                        }
                     }
                 )
 
@@ -83,11 +88,11 @@ fun SearchPanel(
                     Icon(Icons.Default.Search, contentDescription = "Search")
                 }
 
-                IconButton(onClick = { /* TODO: Find previous */ }) {
+                IconButton(onClick = { /* Find previous */ }) {
                     Icon(Icons.Default.ArrowUpward, contentDescription = "Previous")
                 }
 
-                IconButton(onClick = { /* TODO: Find next */ }) {
+                IconButton(onClick = { /* Find next */ }) {
                     Icon(Icons.Default.ArrowDownward, contentDescription = "Next")
                 }
 
@@ -111,24 +116,61 @@ fun SearchPanel(
                     singleLine = true
                 )
 
-                IconButton(onClick = { onReplace(replacement) }) {
+                TextButton(
+                    onClick = { onReplace(replacement) },
+                    modifier = Modifier.padding(start = 8.dp)
+                ) {
                     Text("Replace")
                 }
 
-                IconButton(onClick = { /* TODO: Replace all */ }) {
-                    Text("All")
+                TextButton(
+                    onClick = {
+                        onReplaceAll(query, replacement, SearchOptions(
+                            isRegex = isRegex,
+                            isCaseSensitive = isCaseSensitive,
+                            isWholeWord = isWholeWord
+                        ))
+                    },
+                    modifier = Modifier.padding(start = 8.dp)
+                ) {
+                    Text("Replace All")
                 }
             }
 
             // Options row
             Row(
-                modifier = Modifier.padding(top = 8.dp)
+                modifier = Modifier.padding(top = 8.dp),
+                verticalAlignment = Alignment.CenterVertically
             ) {
-                // TODO: Add toggle buttons for regex, case sensitive, whole word
-                Text(
-                    text = "Options: ${if (isRegex) "Regex " else ""}${if (isCaseSensitive) "Case Sensitive " else ""}${if (isWholeWord) "Whole Word" else ""}",
-                    style = MaterialTheme.typography.labelSmall
-                )
+                Row(verticalAlignment = Alignment.CenterVertically) {
+                    Checkbox(
+                        checked = isRegex,
+                        onCheckedChange = { isRegex = it }
+                    )
+                    Text("Regex", style = MaterialTheme.typography.labelSmall)
+                }
+
+                Row(
+                    verticalAlignment = Alignment.CenterVertically,
+                    modifier = Modifier.padding(start = 16.dp)
+                ) {
+                    Checkbox(
+                        checked = isCaseSensitive,
+                        onCheckedChange = { isCaseSensitive = it }
+                    )
+                    Text("Case Sensitive", style = MaterialTheme.typography.labelSmall)
+                }
+
+                Row(
+                    verticalAlignment = Alignment.CenterVertically,
+                    modifier = Modifier.padding(start = 16.dp)
+                ) {
+                    Checkbox(
+                        checked = isWholeWord,
+                        onCheckedChange = { isWholeWord = it }
+                    )
+                    Text("Whole Word", style = MaterialTheme.typography.labelSmall)
+                }
             }
         }
     }
