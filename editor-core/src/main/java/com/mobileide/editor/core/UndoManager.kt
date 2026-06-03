@@ -348,6 +348,6 @@ class UndoManagerImpl(
     }
 
     override fun toString(): String {
-        return "UndoManager(history=${history.size}, current=$currentIndex, canUndo=$canUndo(), canRedo=$canRedo())"
+        return "UndoManager(history=${history.size}, current=$currentIndex, canUndo=${canUndo()}, canRedo=${canRedo()})"
     }
 }
