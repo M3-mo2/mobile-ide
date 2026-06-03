@@ -264,7 +264,7 @@ class UndoManagerImpl(
     /**
      * Returns a new UndoManager with the index decremented (for undo).
      */
-    fun withDecrementedIndex(): UndoManager {
+    override fun withDecrementedIndex(): UndoManager {
         return UndoManagerImpl(
             maxHistory = maxHistory,
             history = history,
@@ -277,7 +277,7 @@ class UndoManagerImpl(
     /**
      * Returns a new UndoManager with the index incremented (for redo).
      */
-    fun withIncrementedIndex(): UndoManager {
+    override fun withIncrementedIndex(): UndoManager {
         return UndoManagerImpl(
             maxHistory = maxHistory,
             history = history,
