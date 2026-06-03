@@ -20,7 +20,6 @@ proguard/
 *.iml
 .navigation/
 captures/
-*.jks
 *.keystore
 google-services.json
 *.hprof
