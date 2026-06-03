@@ -32,8 +32,50 @@ class MainActivity : ComponentActivity() {
                     color = MaterialTheme.colorScheme.background
                 ) {
                     val viewModel: MainViewModel = hiltViewModel()
+                    val uiState = viewModel.uiState
+                    val editorState = viewModel.editorState
+
                     IdeLayout(
-                        viewModel = viewModel
+                        editorState = editorState,
+                        projectRoot = uiState.projectRoot,
+                        expandedDirs = uiState.expandedDirectories,
+                        openTabs = uiState.openTabs,
+                        activeTabId = uiState.activeTabId,
+                        isSearchOpen = uiState.isSearchOpen,
+                        isSettingsOpen = uiState.isSettingsOpen,
+                        isSidebarOpen = uiState.isSidebarOpen,
+                        onNewFile = { viewModel.createNewFile() },
+                        onOpenFolder = { /* Would open SAF picker */ },
+                        onSave = { viewModel.saveCurrentFile() },
+                        onUndo = { viewModel.undo() },
+                        onRedo = { viewModel.redo() },
+                        onSearch = { viewModel.openSearch() },
+                        onSettings = { viewModel.openSettings() },
+                        onToggleSidebar = { viewModel.toggleSidebar() },
+                        onFileClick = { viewModel.openFile(it) },
+                        onDirectoryClick = { path ->
+                            if (uiState.expandedDirectories.contains(path)) {
+                                viewModel.collapseDirectory(path)
+                            } else {
+                                viewModel.expandDirectory(path)
+                            }
+                        },
+                        onCreateFile = { viewModel.createNewFile(it) },
+                        onCreateFolder = { viewModel.createNewFolder(it) },
+                        onRename = { oldPath, newName -> viewModel.renameFile(oldPath, newName) },
+                        onDelete = { viewModel.deleteFile(it) },
+                        onTabClick = { viewModel.switchTab(it) },
+                        onTabClose = { viewModel.closeFile(it) },
+                        onEdit = { text, start, end -> viewModel.onEdit(text, start, end) },
+                        onCursorMove = { viewModel.onCursorMove(it) },
+                        onSearchQuery = { query, options -> viewModel.search(query, options) },
+                        onReplace = { viewModel.replace(it) },
+                        onReplaceAll = { query, replacement, options ->
+                            viewModel.replaceAll(query, replacement, options)
+                        },
+                        onCloseSearch = { viewModel.closeSearch() },
+                        onSettingsChange = { viewModel.updateSettings(it) },
+                        onCloseSettings = { viewModel.closeSettings() }
                     )
                 }
             }

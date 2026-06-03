@@ -191,8 +191,7 @@ private fun FileItem(
         }
     }
 
-    // Click to open file
-    androidx.compose.foundation.clickable { onClick() }
+    // Click to open file - handled by parent composable
 
     // Rename dialog
     if (showRenameDialog) {

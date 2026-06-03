@@ -31,7 +31,6 @@ import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
-import com.mobileide.MainViewModel
 import com.mobileide.editor.core.EditorState
 import com.mobileide.editor.files.FileEntry
 import com.mobileide.editor.files.Tab
@@ -42,12 +41,40 @@ import com.mobileide.editor.files.Tab
  */
 @Composable
 fun IdeLayout(
-    viewModel: MainViewModel,
+    editorState: EditorState,
+    projectRoot: FileEntry.Directory?,
+    expandedDirs: Set<String>,
+    openTabs: List<Tab>,
+    activeTabId: String?,
+    isSearchOpen: Boolean,
+    isSettingsOpen: Boolean,
+    isSidebarOpen: Boolean,
+    onNewFile: () -> Unit,
+    onOpenFolder: () -> Unit,
+    onSave: () -> Unit,
+    onUndo: () -> Unit,
+    onRedo: () -> Unit,
+    onSearch: () -> Unit,
+    onSettings: () -> Unit,
+    onToggleSidebar: () -> Unit,
+    onFileClick: (String) -> Unit,
+    onDirectoryClick: (String) -> Unit,
+    onCreateFile: (String) -> Unit,
+    onCreateFolder: (String) -> Unit,
+    onRename: (String, String) -> Unit,
+    onDelete: (String) -> Unit,
+    onTabClick: (String) -> Unit,
+    onTabClose: (String) -> Unit,
+    onEdit: (String, com.mobileide.editor.core.Position, com.mobileide.editor.core.Position) -> Unit,
+    onCursorMove: (com.mobileide.editor.core.Position) -> Unit,
+    onSearchQuery: (String, com.mobileide.editor.search.SearchOptions) -> Unit,
+    onReplace: (String) -> Unit,
+    onReplaceAll: (String, String, com.mobileide.editor.search.SearchOptions) -> Unit,
+    onCloseSearch: () -> Unit,
+    onSettingsChange: (com.mobileide.editor.core.EditorSettings) -> Unit,
+    onCloseSettings: () -> Unit,
     modifier: Modifier = Modifier
 ) {
-    val uiState = viewModel.uiState
-    val editorState = viewModel.editorState
-
     Surface(
         modifier = modifier.fillMaxSize(),
         color = MaterialTheme.colorScheme.background
@@ -55,36 +82,30 @@ fun IdeLayout(
         Column(modifier = Modifier.fillMaxSize()) {
             // Top toolbar
             IdeToolbar(
-                onNewFile = { viewModel.createNewFile() },
-                onOpenFolder = { /* Would open SAF picker */ },
-                onSave = { viewModel.saveCurrentFile() },
-                onUndo = { viewModel.undo() },
-                onRedo = { viewModel.redo() },
-                onSearch = { viewModel.openSearch() },
-                onSettings = { viewModel.openSettings() },
-                onToggleSidebar = { viewModel.toggleSidebar() },
+                onNewFile = onNewFile,
+                onOpenFolder = onOpenFolder,
+                onSave = onSave,
+                onUndo = onUndo,
+                onRedo = onRedo,
+                onSearch = onSearch,
+                onSettings = onSettings,
+                onToggleSidebar = onToggleSidebar,
                 modifier = Modifier.fillMaxWidth()
             )
 
             // Main content area
             Row(modifier = Modifier.weight(1f)) {
                 // Sidebar (file explorer)
-                if (uiState.isSidebarOpen) {
+                if (isSidebarOpen) {
                     FileExplorerPanel(
-                        root = uiState.projectRoot,
-                        expandedDirs = uiState.expandedDirectories,
-                        onFileClick = { viewModel.openFile(it) },
-                        onDirectoryClick = { path ->
-                            if (uiState.expandedDirectories.contains(path)) {
-                                viewModel.collapseDirectory(path)
-                            } else {
-                                viewModel.expandDirectory(path)
-                            }
-                        },
-                        onCreateFile = { viewModel.createNewFile(it) },
-                        onCreateFolder = { viewModel.createNewFolder(it) },
-                        onRename = { oldPath, newName -> viewModel.renameFile(oldPath, newName) },
-                        onDelete = { viewModel.deleteFile(it) },
+                        root = projectRoot,
+                        expandedDirs = expandedDirs,
+                        onFileClick = onFileClick,
+                        onDirectoryClick = onDirectoryClick,
+                        onCreateFile = onCreateFile,
+                        onCreateFolder = onCreateFolder,
+                        onRename = onRename,
+                        onDelete = onDelete,
                         modifier = Modifier.width(280.dp)
                     )
                 }
@@ -93,33 +114,31 @@ fun IdeLayout(
                 Column(modifier = Modifier.weight(1f)) {
                     // Tab bar
                     TabBar(
-                        openTabs = uiState.openTabs,
-                        activeTabId = uiState.activeTabId,
-                        onTabClick = { viewModel.switchTab(it) },
-                        onTabClose = { viewModel.closeFile(it) },
+                        openTabs = openTabs,
+                        activeTabId = activeTabId,
+                        onTabClick = onTabClick,
+                        onTabClose = onTabClose,
                         modifier = Modifier.fillMaxWidth()
                     )
 
                     // Search panel (conditional)
-                    if (uiState.isSearchOpen) {
+                    if (isSearchOpen) {
                         SearchPanel(
                             state = editorState,
-                            onSearch = { query, options -> viewModel.search(query, options) },
-                            onReplace = { viewModel.replace(it) },
-                            onReplaceAll = { query, replacement, options ->
-                                viewModel.replaceAll(query, replacement, options)
-                            },
-                            onClose = { viewModel.closeSearch() },
+                            onSearch = onSearchQuery,
+                            onReplace = onReplace,
+                            onReplaceAll = onReplaceAll,
+                            onClose = onCloseSearch,
                             modifier = Modifier.fillMaxWidth()
                         )
                     }
 
                     // Settings panel (conditional)
-                    if (uiState.isSettingsOpen) {
+                    if (isSettingsOpen) {
                         SettingsPanel(
                             settings = editorState.settings,
-                            onSettingsChange = { viewModel.updateSettings(it) },
-                            onClose = { viewModel.closeSettings() },
+                            onSettingsChange = onSettingsChange,
+                            onClose = onCloseSettings,
                             modifier = Modifier.fillMaxWidth()
                         )
                     }
@@ -127,8 +146,8 @@ fun IdeLayout(
                     // Editor content
                     EditorScreen(
                         state = editorState,
-                        onEdit = { text, start, end -> viewModel.onEdit(text, start, end) },
-                        onCursorMove = { viewModel.onCursorMove(it) },
+                        onEdit = onEdit,
+                        onCursorMove = onCursorMove,
                         modifier = Modifier.weight(1f)
                     )
                 }
