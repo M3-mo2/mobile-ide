@@ -195,7 +195,7 @@ private fun EditorCanvas(
  * Status bar composable.
  */
 @Composable
-private fun StatusBar(
+internal fun StatusBar(
     line: Int,
     column: Int,
     lineCount: Int,
