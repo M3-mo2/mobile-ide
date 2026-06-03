@@ -42,7 +42,7 @@ class UndoManagerTest {
     fun `undo and redo`() {
         val manager = UndoManagerImpl()
         val op = createInsertOp("Hello", Position(0, 0), Position(0, 5))
-        var newManager = manager.record(op)
+        var newManager: UndoManager = manager.record(op)
 
         // Undo
         val inverse = newManager.undo()
@@ -109,7 +109,7 @@ class UndoManagerTest {
     @Test
     fun `max history limit`() {
         val manager = UndoManagerImpl(maxHistory = 3)
-        var newManager = manager
+        var newManager: UndoManager = manager
 
         for (i in 1..5) {
             val op = createInsertOp("Op$i", Position(0, 0), Position(0, i))
@@ -137,7 +137,7 @@ class UndoManagerTest {
         val op2 = createInsertOp(" World", Position(0, 5), Position(0, 11))
         val op3 = createInsertOp("!", Position(0, 11), Position(0, 12))
 
-        var newManager = manager.record(op1)
+        var newManager: UndoManager = manager.record(op1)
         newManager = newManager.record(op2)
 
         // Undo op2

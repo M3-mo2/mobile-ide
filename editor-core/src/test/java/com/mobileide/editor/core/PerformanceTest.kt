@@ -91,7 +91,7 @@ class PerformanceTest {
         val undoManager = UndoManagerImpl(maxHistory = 10000)
         val startTime = System.currentTimeMillis()
 
-        var currentManager = undoManager
+        var currentManager: UndoManager = undoManager
         for (i in 1..1000) {
             val op = EditOperation(
                 type = EditType.INSERT,
@@ -194,7 +194,7 @@ class PerformanceTest {
         val startTime = System.currentTimeMillis()
 
         // Create and manipulate selections
-        var selection = SelectionImpl(Position(0, 0), Position(0, 0))
+        var selection: Selection = SelectionImpl(Position(0, 0), Position(0, 0))
         for (i in 1..100) {
             selection = selection.extend(Direction.DOWN, lineLengths)
         }

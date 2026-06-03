@@ -130,6 +130,16 @@ interface UndoManager {
      * Returns true if currently inside a compound operation group.
      */
     fun isGrouping(): Boolean
+
+    /**
+     * Returns a new UndoManager with the index decremented (for undo).
+     */
+    fun withDecrementedIndex(): UndoManager
+
+    /**
+     * Returns a new UndoManager with the index incremented (for redo).
+     */
+    fun withIncrementedIndex(): UndoManager
 }
 
 /**

@@ -61,6 +61,11 @@ data class CursorState(
     val isBlinking: Boolean = true
 ) {
     /**
+     * All cursors including primary.
+     */
+    val allCursors: List<Cursor>
+        get() = listOf(primary) + secondary
+    /**
      * Creates a copy with a new primary cursor.
      */
     fun withPrimary(newPrimary: Cursor): CursorState {
