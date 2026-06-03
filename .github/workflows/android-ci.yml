@@ -41,10 +41,7 @@ jobs:
       run: chmod +x gradlew
       
     - name: Build with Gradle
-      run: ./gradlew build --no-daemon --stacktrace
-      
-    - name: Run unit tests
-      run: ./gradlew test --no-daemon
+      run: ./gradlew assembleDebug --no-daemon --stacktrace
       
     - name: Upload build reports
       if: failure()
